@@ -9,6 +9,7 @@ import pickle
 import yaml
 import hashlib
 import requests
+import io
 
 # PY.EVAL.USE - Dangerous eval usage
 def dangerous_eval(user_input):
@@ -28,9 +29,25 @@ def load_config(config_data):
     config = yaml.load(config_data)  # SECURITY ISSUE: Code execution via YAML
     return config
 
-# PY.PICKLE.LOAD - Unsafe pickle deserialization
+# PY.PICKLE.LOAD - Fixed: Restricted unpickler for safe deserialization
+class RestrictedUnpickler(pickle.Unpickler):
+    """Unpickler that only allows safe built-in types to prevent code execution."""
+    SAFE_BUILTINS = {
+        'builtins': {
+            'dict', 'list', 'tuple', 'set', 'frozenset',
+            'int', 'float', 'str', 'bytes', 'bytearray',
+            'bool', 'NoneType', 'complex'
+        }
+    }
+
+    def find_class(self, module, name):
+        """Only allow safe built-in types during unpickling."""
+        if module in self.SAFE_BUILTINS and name in self.SAFE_BUILTINS[module]:
+            return super().find_class(module, name)
+        raise pickle.UnpicklingError(f"Unpickling of {module}.{name} is not allowed for security reasons")
+
 def load_data(data):
-    obj = pickle.loads(data)  # SECURITY ISSUE: Code execution via pickle
+    obj = RestrictedUnpickler(io.BytesIO(data)).load()
     return obj
 
 # PY.HASH.WEAK - Weak cryptographic hash
