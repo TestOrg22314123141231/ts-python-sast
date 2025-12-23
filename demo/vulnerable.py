@@ -39,7 +39,7 @@ def hash_password(password):
 
 # PY.REQUESTS.VERIFY_FALSE - Disabled SSL verification
 def fetch_data(url):
-    response = requests.get(url, verify=False)  # SECURITY ISSUE: MITM vulnerability
+    response = requests.get(url)
     return response.text
 
 # PY.SECRET.HARDCODED - Hardcoded secrets
