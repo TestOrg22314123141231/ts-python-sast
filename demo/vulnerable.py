@@ -17,7 +17,7 @@ def dangerous_eval(user_input):
 
 # PY.SUBPROCESS.SHELL - Shell injection
 def run_command(filename):
-    subprocess.run(f"ls -la {filename}", shell=True)  # SECURITY ISSUE: Command injection
+    subprocess.run(["ls", "-la", filename])
 
 # PY.OS.SYSTEM - OS system usage
 def delete_file(filename):
