@@ -25,7 +25,7 @@ def delete_file(filename):
 
 # PY.YAML.UNSAFE_LOAD - Unsafe YAML loading
 def load_config(config_data):
-    config = yaml.load(config_data)  # SECURITY ISSUE: Code execution via YAML
+    config = yaml.safe_load(config_data)
     return config
 
 # PY.PICKLE.LOAD - Unsafe pickle deserialization
