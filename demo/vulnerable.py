@@ -3,6 +3,8 @@
 Demo file with various security issues for ts-sast testing
 """
 
+import ast
+import operator
 import os
 import subprocess
 import pickle
@@ -10,10 +12,70 @@ import yaml
 import hashlib
 import requests
 
+# Safe operators for expression evaluation
+_SAFE_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+    ast.Eq: operator.eq,
+    ast.NotEq: operator.ne,
+    ast.Lt: operator.lt,
+    ast.LtE: operator.le,
+    ast.Gt: operator.gt,
+    ast.GtE: operator.ge,
+}
+
+def _safe_eval(node):
+    """Safely evaluate an AST node with restricted operations."""
+    if isinstance(node, ast.Constant):
+        return node.value
+    elif isinstance(node, ast.Num):  # For Python < 3.8 compatibility
+        return node.n
+    elif isinstance(node, ast.BinOp):
+        left = _safe_eval(node.left)
+        right = _safe_eval(node.right)
+        op = _SAFE_OPERATORS.get(type(node.op))
+        if op is None:
+            raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+        return op(left, right)
+    elif isinstance(node, ast.UnaryOp):
+        operand = _safe_eval(node.operand)
+        op = _SAFE_OPERATORS.get(type(node.op))
+        if op is None:
+            raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+        return op(operand)
+    elif isinstance(node, ast.Compare):
+        left = _safe_eval(node.left)
+        for op, comparator in zip(node.ops, node.comparators):
+            right = _safe_eval(comparator)
+            op_func = _SAFE_OPERATORS.get(type(op))
+            if op_func is None:
+                raise ValueError(f"Unsupported operation: {type(op).__name__}")
+            if not op_func(left, right):
+                return False
+            left = right
+        return True
+    elif isinstance(node, ast.Expression):
+        return _safe_eval(node.body)
+    else:
+        raise ValueError(f"Unsupported expression: {type(node).__name__}")
+
 # PY.EVAL.USE - Dangerous eval usage
 def dangerous_eval(user_input):
-    result = eval(user_input)  # SECURITY ISSUE: Code injection
-    return result
+    # FIXED: Use safe expression evaluation instead of eval()
+    # Parse the input and evaluate with restricted operations only
+    try:
+        parsed = ast.parse(user_input, mode='eval')
+        result = _safe_eval(parsed)
+        return result
+    except (SyntaxError, ValueError) as e:
+        raise ValueError(f"Invalid or unsafe expression: {e}")
 
 # PY.SUBPROCESS.SHELL - Shell injection
 def run_command(filename):
