@@ -9,6 +9,7 @@ import pickle
 import yaml
 import hashlib
 import requests
+import bcrypt
 
 # PY.EVAL.USE - Dangerous eval usage
 def dangerous_eval(user_input):
@@ -35,7 +36,14 @@ def load_data(data):
 
 # PY.HASH.WEAK - Weak cryptographic hash
 def hash_password(password):
-    return hashlib.md5(password.encode()).hexdigest()  # SECURITY ISSUE: Weak hash
+    """Hash password using bcrypt with automatic salting.
+
+    Returns bcrypt hash string (60 characters) instead of MD5 (32 characters).
+    Existing MD5 hashes in database must be migrated - see migration guide.
+    """
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode(), salt)
+    return hashed.decode('utf-8')  # Returns string like '$2b$12$...' (60 chars)
 
 # PY.REQUESTS.VERIFY_FALSE - Disabled SSL verification
 def fetch_data(url):
