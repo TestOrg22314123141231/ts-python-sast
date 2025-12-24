@@ -21,7 +21,7 @@ def run_command(filename):
 
 # PY.OS.SYSTEM - OS system usage
 def delete_file(filename):
-    os.system(f"rm {filename}")  # SECURITY ISSUE: Command injection
+    subprocess.run(["rm", filename])
 
 # PY.YAML.UNSAFE_LOAD - Unsafe YAML loading
 def load_config(config_data):
