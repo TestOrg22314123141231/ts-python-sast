@@ -35,7 +35,9 @@ def load_data(data):
 
 # PY.HASH.WEAK - Weak cryptographic hash
 def hash_password(password):
-    return hashlib.md5(password.encode()).hexdigest()  # SECURITY ISSUE: Weak hash
+    salt = os.urandom(16)
+    dk = hashlib.scrypt(password.encode(), salt=salt, n=32768, r=8, p=1, maxmem=67108864)
+    return salt.hex() + ':' + dk.hex()
 
 # PY.REQUESTS.VERIFY_FALSE - Disabled SSL verification
 def fetch_data(url):
