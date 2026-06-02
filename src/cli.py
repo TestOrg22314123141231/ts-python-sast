@@ -414,6 +414,7 @@ def demo(
 Demo file with various security issues for ts-sast testing
 """
 
+import ast
 import os
 import subprocess
 import pickle
@@ -421,9 +422,9 @@ import yaml
 import hashlib
 import requests
 
-# PY.EVAL.USE - Dangerous eval usage
+# PY.EVAL.USE - Safe expression evaluation using ast.literal_eval
 def dangerous_eval(user_input):
-    result = eval(user_input)  # SECURITY ISSUE: Code injection
+    result = ast.literal_eval(user_input)
     return result
 
 # PY.SUBPROCESS.SHELL - Shell injection
