@@ -49,10 +49,10 @@ def login():
     password = request.form.get('password')
 
     # PY.SQL.INJECTION - SQL injection vulnerability
-    query = f"SELECT * FROM users WHERE username='{username}' AND password='{hash_user_password(password)}'"  # SECURITY ISSUE: SQL injection
+    query = "SELECT * FROM users WHERE username=? AND password=?"
     conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
-    cursor.execute(query)  # SECURITY ISSUE: Executing unsanitized query
+    cursor.execute(query, (username, hash_user_password(password)))
     user = cursor.fetchone()
 
     if user:
@@ -147,12 +147,19 @@ def export_data():
     format_type = request.args.get('format', 'json')
     table_name = request.args.get('table', 'users')
 
-    # PY.SQL.INJECTION - SQL injection in table name
-    query = f"SELECT * FROM {table_name} LIMIT 100"  # SECURITY ISSUE: Table name not sanitized
+    ALLOWED_TABLE_QUERIES = {
+        'users': "SELECT * FROM users LIMIT 100",
+        'products': "SELECT * FROM products LIMIT 100",
+        'orders': "SELECT * FROM orders LIMIT 100",
+        'reports': "SELECT * FROM reports LIMIT 100",
+    }
+    if table_name not in ALLOWED_TABLE_QUERIES:
+        return "Invalid table name", 400
+    query = ALLOWED_TABLE_QUERIES[table_name]
 
     conn = sqlite3.connect('app.db')
     cursor = conn.cursor()
-    cursor.execute(query)  # SECURITY ISSUE: Executing unsanitized query
+    cursor.execute(query)
     rows = cursor.fetchall()
 
     if format_type == 'csv':
@@ -254,8 +261,10 @@ def generate_report(report_type, params):
         config = {}
 
     # PY.SQL.INJECTION - Dynamic query building
-    table_filter = params.get('filter', '1=1')
-    query = f"SELECT * FROM reports WHERE type='{report_type}' AND {table_filter}"
+    ALLOWED_FILTERS = {'active': 'status=1', 'all': '1=1', 'archived': 'status=0'}
+    filter_key = params.get('filter', 'all')
+    safe_filter = ALLOWED_FILTERS.get(filter_key, '1=1')
+    query = "SELECT * FROM reports WHERE type=? AND (" + safe_filter + ")"
 
     # PY.HASH.WEAK - Weak hash for report ID
     report_id = hashlib.md5(f"{report_type}:{str(params)}".encode()).hexdigest()
@@ -263,6 +272,7 @@ def generate_report(report_type, params):
     return {
         'report_id': report_id,
         'query': query,
+        'query_params': (report_type,),
         'config': config
     }
 
