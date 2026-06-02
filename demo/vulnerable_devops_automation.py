@@ -269,7 +269,7 @@ class VulnerableMonitoringManager:
             # PY.REQUESTS.VERIFY_FALSE - Slack webhook without SSL verification
             payload = {"text": alert_message}
             try:
-                response = requests.post(config.slack_webhook_url, json=payload, verify=False)  # SECURITY ISSUE: verify=False
+                response = requests.post(config.slack_webhook_url, json=payload, verify=True)
                 return response.status_code == 200
             except Exception as e:
                 logging.error(f"Slack notification failed: {e}")
@@ -312,7 +312,7 @@ class VulnerableConfigManager:
 
         elif config_source.startswith('http'):
             # PY.REQUESTS.VERIFY_FALSE - Remote config without SSL verification
-            response = requests.get(config_source, verify=False)  # SECURITY ISSUE: verify=False
+            response = requests.get(config_source, verify=True)
             config_data = response.json()
 
         else:
