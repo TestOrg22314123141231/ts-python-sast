@@ -124,9 +124,9 @@ def api_proxy():
     target_url = request.args.get('url')
     headers = {'Authorization': f'Bearer {API_TOKEN}'}
 
-    # PY.REQUESTS.VERIFY_FALSE - Disabled SSL verification
+    # PY.REQUESTS.VERIFY_FALSE - SSL verification enabled (default)
     try:
-        response = requests.get(target_url, headers=headers, verify=False, timeout=30)  # SECURITY ISSUE: verify=False
+        response = requests.get(target_url, headers=headers, timeout=30)  # SECURE: SSL verification enabled by default
         return response.json()
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}

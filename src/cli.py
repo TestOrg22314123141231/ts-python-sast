@@ -448,9 +448,9 @@ def load_data(data):
 def hash_password(password):
     return hashlib.md5(password.encode()).hexdigest()  # SECURITY ISSUE: Weak hash
 
-# PY.REQUESTS.VERIFY_FALSE - Disabled SSL verification
+# PY.REQUESTS.VERIFY_FALSE - SSL verification enabled (default)
 def fetch_data(url):
-    response = requests.get(url, verify=False)  # SECURITY ISSUE: MITM vulnerability
+    response = requests.get(url)  # SECURE: SSL verification enabled by default
     return response.text
 
 # PY.SECRET.HARDCODED - Hardcoded secrets
