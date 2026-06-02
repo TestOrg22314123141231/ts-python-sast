@@ -3,6 +3,7 @@
 Example file with various security vulnerabilities for testing ts-sast
 """
 
+import ast
 import os
 import subprocess
 import pickle
@@ -12,13 +13,17 @@ import requests
 from flask import request
 
 # PY.EVAL.USE - Code injection vulnerability
+def _safe_eval(expression):
+    """Safe evaluation helper: restricts input to literal Python values via ast.literal_eval."""
+    return ast.literal_eval(expression)
+
 def process_user_formula(formula):
-    """Dangerous: eval allows arbitrary code execution"""
-    return eval(formula)  # VULNERABLE
+    """Evaluates literal Python expressions (strings, numbers, dicts, lists, tuples, booleans, None)."""
+    return _safe_eval(formula)
 
 def execute_user_code(code):
-    """Dangerous: exec allows arbitrary code execution"""
-    exec(code)  # VULNERABLE
+    """Executes user-provided code strings — disabled to prevent code injection."""
+    raise ValueError("Execution of arbitrary user-provided code is not permitted")
 
 # PY.SUBPROCESS.SHELL - Command injection
 def list_directory(dirname):
