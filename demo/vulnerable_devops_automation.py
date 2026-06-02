@@ -342,13 +342,11 @@ class VulnerableConfigManager:
         """Sync configuration to multiple hosts"""
         for host in destination_hosts:
             # PY.SUBPROCESS.SHELL - rsync with SSH
-            sync_cmd = f"rsync -avz --delete {source_path}/ {host}:/opt/app/config/"
             try:
-                subprocess.run(sync_cmd, shell=True, check=True)  # SECURITY ISSUE: shell=True with host
+                subprocess.run(["rsync", "-avz", "--delete", f"{source_path}/", f"{host}:/opt/app/config/"], shell=False, check=True)
 
                 # Restart services on remote host
-                restart_cmd = f"ssh {host} 'systemctl restart application'"
-                subprocess.run(restart_cmd, shell=True)  # SECURITY ISSUE: shell=True with SSH
+                subprocess.run(["ssh", host, "systemctl restart application"], shell=False)
 
             except Exception as e:
                 logging.error(f"Configuration sync to {host} failed: {e}")
