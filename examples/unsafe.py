@@ -82,9 +82,9 @@ API_SECRET = "sk-1234567890abcdefghijklmnopqrstuvwxyz"  # VULNERABLE
 DATABASE_PASSWORD = "admin123"  # VULNERABLE
 JWT_SECRET_KEY = "my-super-secret-key-dont-tell-anyone"  # VULNERABLE
 
-# AWS credentials (VULNERABLE)
-AWS_ACCESS_KEY = "AKIA1234567890123456"  # VULNERABLE
-AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # VULNERABLE
+# AWS credentials
+AWS_ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 
 # SQL injection patterns (would need more sophisticated detection)
 def get_user_by_id(user_id):
