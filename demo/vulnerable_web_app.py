@@ -13,6 +13,7 @@ import hashlib
 import requests
 import yaml
 import json
+from urllib.parse import urlparse
 from flask import Flask, request, render_template_string, redirect, session
 from werkzeug.utils import secure_filename
 import logging
@@ -118,15 +119,29 @@ def update_config():
 
     return "No configuration file provided"
 
+ALLOWED_API_HOSTS = {
+    "api.example.com",
+    "data.example.com",
+}
+ALLOWED_API_SCHEMES = {"https"}
+
+
 @app.route('/api/data')
 def api_proxy():
     """API proxy with SSL verification disabled"""
     target_url = request.args.get('url')
+
+    if not target_url:
+        return {"error": "Missing url parameter"}, 400
+
+    parsed = urlparse(target_url)
+    if parsed.scheme not in ALLOWED_API_SCHEMES or parsed.hostname not in ALLOWED_API_HOSTS:
+        return {"error": "URL not permitted"}, 400
+
     headers = {'Authorization': f'Bearer {API_TOKEN}'}
 
-    # PY.REQUESTS.VERIFY_FALSE - Disabled SSL verification
     try:
-        response = requests.get(target_url, headers=headers, verify=False, timeout=30)  # SECURITY ISSUE: verify=False
+        response = requests.get(target_url, headers=headers, timeout=30)
         return response.json()
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}
