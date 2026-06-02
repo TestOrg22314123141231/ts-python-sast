@@ -254,8 +254,7 @@ class VulnerableDataAnalyzer:
     def generate_model_hash(self, model_params):
         """Generate hash for model versioning"""
         params_str = json.dumps(model_params, sort_keys=True)
-        # PY.HASH.WEAK - Using SHA1 for model hashing
-        return hashlib.sha1(params_str.encode()).hexdigest()  # SECURITY ISSUE: SHA1 is weak
+        return hashlib.sha256(params_str.encode()).hexdigest()
 
 def main():
     """Main processing pipeline with multiple vulnerabilities"""
