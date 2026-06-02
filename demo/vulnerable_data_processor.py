@@ -8,7 +8,6 @@ ETL systems, and data science applications.
 import os
 import sys
 import json
-import pickle
 import subprocess
 import hashlib
 import requests
@@ -44,13 +43,13 @@ class VulnerableDataLoader:
         self.processed_files = []
 
     def load_from_pickle(self, file_path):
-        """Load data from pickle file - unsafe deserialization"""
+        """Load data from file using JSON deserialization"""
         try:
-            with open(file_path, 'rb') as f:
-                data = pickle.load(f)  # SECURITY ISSUE: Unsafe pickle deserialization
+            with open(file_path, 'r') as f:
+                data = json.load(f)
             return data
         except Exception as e:
-            logging.error(f"Pickle loading error: {e}")
+            logging.error(f"Data loading error: {e}")
             return None
 
     def load_from_yaml(self, file_path):
@@ -168,9 +167,8 @@ class VulnerableDataProcessor:
             subprocess.run(f"mkdir -p '{output_dir}'", shell=True)  # SECURITY ISSUE: shell=True with path
 
         if format_type == 'pickle':
-            # PY.PICKLE.LOAD - Using pickle for data serialization
-            with open(filename, 'wb') as f:
-                pickle.dump(data, f)  # SECURITY ISSUE: Pickle can be exploited during loading
+            with open(filename, 'w') as f:
+                json.dump(data, f)
 
         elif format_type == 'csv':
             # Using shell command for CSV export
@@ -199,8 +197,7 @@ class VulnerableDataAnalyzer:
             # PY.YAML.UNSAFE_LOAD - Unsafe YAML parsing
             return yaml.load(config_data)  # SECURITY ISSUE: yaml.load with user input
         elif isinstance(config_data, bytes):
-            # PY.PICKLE.LOAD - Unsafe pickle deserialization
-            return pickle.loads(config_data)  # SECURITY ISSUE: pickle.loads with user data
+            return json.loads(config_data.decode('utf-8'))
         else:
             return config_data
 
