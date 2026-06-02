@@ -120,13 +120,12 @@ def update_config():
 
 @app.route('/api/data')
 def api_proxy():
-    """API proxy with SSL verification disabled"""
+    """API proxy endpoint"""
     target_url = request.args.get('url')
     headers = {'Authorization': f'Bearer {API_TOKEN}'}
 
-    # PY.REQUESTS.VERIFY_FALSE - Disabled SSL verification
     try:
-        response = requests.get(target_url, headers=headers, verify=False, timeout=30)  # SECURITY ISSUE: verify=False
+        response = requests.get(target_url, headers=headers, timeout=30)
         return response.json()
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}
