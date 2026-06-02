@@ -10,6 +10,7 @@ import sqlite3
 import subprocess
 import pickle
 import hashlib
+import hmac
 import requests
 import yaml
 import json
@@ -35,13 +36,26 @@ CONFIG = {
 
 # PY.HASH.WEAK - Weak cryptographic functions
 def hash_user_password(password):
-    """Hash user password with weak algorithm"""
-    return hashlib.md5(password.encode()).hexdigest()  # SECURITY ISSUE: MD5 is cryptographically broken
+    """Hash user password using scrypt with a random salt; returns 'salt_hex:hash_hex'."""
+    salt = os.urandom(16)
+    dk = hashlib.scrypt(password.encode(), salt=salt, n=32768, r=8, p=1, maxmem=67108864)
+    return salt.hex() + ":" + dk.hex()
+
+def verify_user_password(password, stored_hash):
+    """Verify a password against a stored 'salt_hex:hash_hex' value."""
+    try:
+        salt_hex, dk_hex = stored_hash.split(":", 1)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(dk_hex)
+        actual = hashlib.scrypt(password.encode(), salt=salt, n=32768, r=8, p=1, maxmem=67108864)
+        return hmac.compare_digest(actual, expected)
+    except Exception:
+        return False
 
 def generate_session_token(user_id):
-    """Generate session token with weak hash"""
+    """Generate session token with SHA256 hash"""
     data = f"{user_id}:{app.secret_key}"
-    return hashlib.sha1(data.encode()).hexdigest()  # SECURITY ISSUE: SHA1 is weak for security
+    return hashlib.sha256(data.encode()).hexdigest()
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -49,13 +63,12 @@ def login():
     password = request.form.get('password')
 
     # PY.SQL.INJECTION - SQL injection vulnerability
-    query = f"SELECT * FROM users WHERE username='{username}' AND password='{hash_user_password(password)}'"  # SECURITY ISSUE: SQL injection
     conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
-    cursor.execute(query)  # SECURITY ISSUE: Executing unsanitized query
+    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
     user = cursor.fetchone()
 
-    if user:
+    if user and verify_user_password(password, user[2]):
         session['user_id'] = user[0]
         return redirect('/dashboard')
     else:
