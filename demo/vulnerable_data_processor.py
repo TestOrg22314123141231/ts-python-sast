@@ -5,6 +5,8 @@ This demonstrates security issues commonly found in data processing pipelines,
 ETL systems, and data science applications.
 """
 
+import ast
+import operator
 import os
 import sys
 import json
@@ -134,9 +136,27 @@ class VulnerableDataProcessor:
 
     def process_user_formula(self, data, formula):
         """Process data using user-provided formula"""
+        _SAFE_OPS = {
+            ast.Add: operator.add, ast.Sub: operator.sub,
+            ast.Mult: operator.mul, ast.Div: operator.truediv,
+            ast.Pow: operator.pow, ast.USub: operator.neg,
+            ast.UAdd: operator.pos, ast.Mod: operator.mod,
+        }
+
+        def _safe_eval(node, x):
+            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+                return node.value
+            if isinstance(node, ast.Name) and node.id == 'x':
+                return x
+            if isinstance(node, ast.BinOp) and type(node.op) in _SAFE_OPS:
+                return _SAFE_OPS[type(node.op)](_safe_eval(node.left, x), _safe_eval(node.right, x))
+            if isinstance(node, ast.UnaryOp) and type(node.op) in _SAFE_OPS:
+                return _SAFE_OPS[type(node.op)](_safe_eval(node.operand, x))
+            raise ValueError(f"Unsupported expression node: {type(node).__name__}")
+
         try:
-            # PY.EVAL.USE - Code injection via eval
-            result = eval(f"[{formula} for x in data]")  # SECURITY ISSUE: eval with user input
+            tree = ast.parse(formula, mode='eval')
+            result = [_safe_eval(tree.body, x) for x in data]
             return result
         except Exception as e:
             logging.error(f"Formula processing error: {e}")
@@ -273,16 +293,16 @@ def main():
     if len(sys.argv) > 1:
         input_file = sys.argv[1]
 
-        # PY.EVAL.USE - Processing command line options with eval
         if len(sys.argv) > 2:
             options = sys.argv[2]
             try:
-                # SECURITY ISSUE: eval of command line argument
-                parsed_options = eval(options)  # User can inject code via command line
-            except:
-                parsed_options = {}
+                result = ast.literal_eval(options)
+                if not isinstance(result, dict):
+                    result = {}
+            except (ValueError, SyntaxError):
+                result = {}
         else:
-            parsed_options = {}
+            result = {}
 
         # Load and process data
         if input_file.endswith('.pkl'):
@@ -294,12 +314,12 @@ def main():
                 data = json.load(f)
 
         # Apply user transformations if specified
-        if 'transform' in parsed_options:
-            data = processor.process_user_formula(data, parsed_options['transform'])
+        if 'transform' in result:
+            data = processor.process_user_formula(data, result['transform'])
 
         # Export results
-        if 'output' in parsed_options:
-            processor.export_to_file(data, parsed_options['output'], parsed_options.get('format', 'json'))
+        if 'output' in result:
+            processor.export_to_file(data, result['output'], result.get('format', 'json'))
 
         print(f"Processing completed. Data hash: {processor.generate_data_hash(data)}")
 
