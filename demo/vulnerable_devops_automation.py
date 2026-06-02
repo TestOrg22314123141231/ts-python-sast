@@ -79,14 +79,11 @@ class VulnerableDeploymentManager:
         """Extract deployment package using shell commands"""
         package_name = Path(package_path).name
 
-        # PY.SUBPROCESS.SHELL - Command injection via package extraction
         if package_name.endswith('.tar.gz'):
-            cmd = f"tar -xzf {package_path} -C {destination} --strip-components=1"
-            subprocess.run(cmd, shell=True)  # SECURITY ISSUE: shell=True with file path
+            subprocess.run(["tar", "-xzf", package_path, "-C", destination, "--strip-components=1"])
 
         elif package_name.endswith('.zip'):
-            cmd = f"unzip -o {package_path} -d {destination}"
-            subprocess.run(cmd, shell=True)  # SECURITY ISSUE: shell=True with file path
+            subprocess.run(["unzip", "-o", package_path, "-d", destination])
 
         elif package_name.endswith('.deb'):
             # PY.OS.SYSTEM - Package installation via os.system
@@ -107,10 +104,8 @@ class VulnerableDeploymentManager:
         with open(temp_manifest, 'w') as f:
             f.write(processed_manifest)
 
-        # PY.SUBPROCESS.SHELL - kubectl command with user input
-        kubectl_cmd = f"kubectl apply -f {temp_manifest} -n {namespace}"
         try:
-            result = subprocess.run(kubectl_cmd, shell=True, capture_output=True, text=True)  # SECURITY ISSUE: shell=True with namespace
+            result = subprocess.run(["kubectl", "apply", "-f", temp_manifest, "-n", namespace], capture_output=True, text=True)
             return result.returncode == 0
         except Exception as e:
             logging.error(f"Kubernetes deployment failed: {e}")
@@ -121,8 +116,10 @@ class VulnerableDeploymentManager:
         if lb_type == "nginx":
             # PY.SUBPROCESS.SHELL - nginx configuration update
             upstream_config = "\\n".join([f"server {server};" for server in backend_servers])
-            nginx_cmd = f"echo 'upstream backend {{ {upstream_config} }}' > /etc/nginx/conf.d/upstream.conf && nginx -s reload"
-            subprocess.run(nginx_cmd, shell=True)  # SECURITY ISSUE: shell=True with server list
+            nginx_content = f"upstream backend {{ {upstream_config} }}"
+            with open("/etc/nginx/conf.d/upstream.conf", "w") as f:
+                f.write(nginx_content)
+            subprocess.run(["nginx", "-s", "reload"])
 
         elif lb_type == "haproxy":
             # PY.OS.SYSTEM - HAProxy configuration update
@@ -141,10 +138,8 @@ class VulnerableDeploymentManager:
             'REDIS_PASSWORD': config.redis_password
         })
 
-        # PY.SUBPROCESS.SHELL - Script execution with environment variables
-        script_cmd = f"bash {script_path} --env {environment}"
         try:
-            result = subprocess.run(script_cmd, shell=True, env=deploy_env, capture_output=True, text=True)  # SECURITY ISSUE: shell=True
+            result = subprocess.run(["bash", script_path, "--env", environment], env=deploy_env, capture_output=True, text=True)
             return result.returncode == 0, result.stdout, result.stderr
         except Exception as e:
             logging.error(f"Deployment script execution failed: {e}")
@@ -172,29 +167,21 @@ class VulnerableInfrastructureManager:
     def apply_terraform_changes(self, config_dir):
         """Apply Terraform configuration"""
         # Initialize Terraform
-        # PY.SUBPROCESS.SHELL - Terraform commands
-        init_cmd = f"cd {config_dir} && terraform init"
-        subprocess.run(init_cmd, shell=True)  # SECURITY ISSUE: shell=True with directory
+        subprocess.run(["terraform", "init"], cwd=config_dir)
 
         # Plan changes
-        plan_cmd = f"cd {config_dir} && terraform plan -out=tfplan"
-        subprocess.run(plan_cmd, shell=True)  # SECURITY ISSUE: shell=True
+        subprocess.run(["terraform", "plan", "-out=tfplan"], cwd=config_dir)
 
         # Apply changes
-        apply_cmd = f"cd {config_dir} && terraform apply -auto-approve tfplan"
-        result = subprocess.run(apply_cmd, shell=True, capture_output=True, text=True)  # SECURITY ISSUE: shell=True
+        result = subprocess.run(["terraform", "apply", "-auto-approve", "tfplan"], cwd=config_dir, capture_output=True, text=True)
 
         return result.returncode == 0
 
     def run_ansible_playbook(self, playbook_path, inventory, extra_vars):
         """Run Ansible playbook with command injection"""
-        # Build extra vars string
-        vars_str = " ".join([f"-e {key}={value}" for key, value in extra_vars.items()])
-
-        # PY.SUBPROCESS.SHELL - Ansible command with user variables
-        ansible_cmd = f"ansible-playbook -i {inventory} {playbook_path} {vars_str}"
+        extra_var_args = [arg for key, value in extra_vars.items() for arg in ("-e", f"{key}={value}")]
         try:
-            result = subprocess.run(ansible_cmd, shell=True, capture_output=True, text=True)  # SECURITY ISSUE: shell=True with variables
+            result = subprocess.run(["ansible-playbook", "-i", inventory, playbook_path] + extra_var_args, capture_output=True, text=True)
             return result.returncode == 0, result.stdout
         except Exception as e:
             logging.error(f"Ansible playbook execution failed: {e}")
@@ -203,10 +190,15 @@ class VulnerableInfrastructureManager:
     def provision_cloud_resources(self, cloud_provider, resource_config):
         """Provision cloud resources using CLI tools"""
         if cloud_provider == "aws":
-            # PY.SUBPROCESS.SHELL - AWS CLI with hardcoded credentials
-            aws_cmd = f"AWS_ACCESS_KEY_ID={config.aws_access_key_id} AWS_SECRET_ACCESS_KEY={config.aws_secret_access_key} aws ec2 run-instances"
-            aws_cmd += f" --image-id {resource_config['ami_id']} --instance-type {resource_config['instance_type']}"
-            subprocess.run(aws_cmd, shell=True)  # SECURITY ISSUE: Credentials in command line
+            aws_env = os.environ.copy()
+            aws_env["AWS_ACCESS_KEY_ID"] = config.aws_access_key_id
+            aws_env["AWS_SECRET_ACCESS_KEY"] = config.aws_secret_access_key
+            subprocess.run(
+                ["aws", "ec2", "run-instances",
+                 "--image-id", resource_config['ami_id'],
+                 "--instance-type", resource_config['instance_type']],
+                env=aws_env
+            )
 
         elif cloud_provider == "gcp":
             # PY.OS.SYSTEM - GCP CLI with service account
@@ -230,10 +222,8 @@ class VulnerableMonitoringManager:
         for host in target_hosts:
             host_metrics = {}
             for metric_name, command in metric_commands.items():
-                # PY.SUBPROCESS.SHELL - Remote command execution
-                ssh_cmd = f"ssh -o StrictHostKeyChecking=no {host} '{command}'"
                 try:
-                    result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)  # SECURITY ISSUE: shell=True with SSH
+                    result = subprocess.run(["ssh", "-o", "StrictHostKeyChecking=no", host, command], capture_output=True, text=True)
                     host_metrics[metric_name] = result.stdout.strip()
                 except Exception as e:
                     host_metrics[metric_name] = f"Error: {e}"
@@ -276,10 +266,9 @@ class VulnerableMonitoringManager:
                 return False
 
         elif notification_type == "email":
-            # PY.SUBPROCESS.SHELL - Email sending via sendmail
-            email_cmd = f"echo '{alert_message}' | mail -s 'Alert Notification' admin@company.com"
             try:
-                subprocess.run(email_cmd, shell=True)  # SECURITY ISSUE: shell=True with message content
+                subprocess.run(["mail", "-s", "Alert Notification", "admin@company.com"],
+                               input=alert_message, capture_output=True, text=True)
                 return True
             except Exception as e:
                 logging.error(f"Email notification failed: {e}")
@@ -341,14 +330,11 @@ class VulnerableConfigManager:
     def sync_configuration(self, source_path, destination_hosts):
         """Sync configuration to multiple hosts"""
         for host in destination_hosts:
-            # PY.SUBPROCESS.SHELL - rsync with SSH
-            sync_cmd = f"rsync -avz --delete {source_path}/ {host}:/opt/app/config/"
             try:
-                subprocess.run(sync_cmd, shell=True, check=True)  # SECURITY ISSUE: shell=True with host
+                subprocess.run(["rsync", "-avz", "--delete", f"{source_path}/", f"{host}:/opt/app/config/"], check=True)
 
                 # Restart services on remote host
-                restart_cmd = f"ssh {host} 'systemctl restart application'"
-                subprocess.run(restart_cmd, shell=True)  # SECURITY ISSUE: shell=True with SSH
+                subprocess.run(["ssh", host, "systemctl restart application"])
 
             except Exception as e:
                 logging.error(f"Configuration sync to {host} failed: {e}")
