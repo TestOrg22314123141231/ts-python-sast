@@ -267,5 +267,6 @@ def generate_report(report_type, params):
     }
 
 if __name__ == '__main__':
-    # PY.SECRET.HARDCODED - Debug mode should never be enabled in production
-    app.run(debug=True, host='0.0.0.0', port=5000)  # SECURITY ISSUE: Debug mode enabled
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    host = os.environ.get('FLASK_HOST', '127.0.0.1')
+    app.run(debug=debug_mode, host=host, port=5000)
