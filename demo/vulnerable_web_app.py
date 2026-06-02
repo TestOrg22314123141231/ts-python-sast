@@ -104,13 +104,11 @@ def update_config():
     config_data = request.files.get('config')
 
     if config_data:
-        # PY.YAML.UNSAFE_LOAD - Unsafe YAML loading
         if config_data.filename.endswith('.yaml') or config_data.filename.endswith('.yml'):
-            config = yaml.load(config_data.read())  # SECURITY ISSUE: yaml.load allows code execution
+            config = yaml.safe_load(config_data.read())
 
-        # PY.PICKLE.LOAD - Unsafe pickle deserialization
-        elif config_data.filename.endswith('.pkl'):
-            config = pickle.loads(config_data.read())  # SECURITY ISSUE: pickle.loads allows code execution
+        elif config_data.filename.endswith('.json'):
+            config = json.loads(config_data.read())
 
         # Update application config
         CONFIG.update(config)
