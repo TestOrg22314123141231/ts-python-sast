@@ -416,7 +416,7 @@ Demo file with various security issues for ts-sast testing
 
 import os
 import subprocess
-import pickle
+import json
 import yaml
 import hashlib
 import requests
@@ -439,9 +439,9 @@ def load_config(config_data):
     config = yaml.load(config_data)  # SECURITY ISSUE: Code execution via YAML
     return config
 
-# PY.PICKLE.LOAD - Unsafe pickle deserialization
+# PY.PICKLE.LOAD - Safe JSON deserialization
 def load_data(data):
-    obj = pickle.loads(data)  # SECURITY ISSUE: Code execution via pickle
+    obj = json.loads(data)
     return obj
 
 # PY.HASH.WEAK - Weak cryptographic hash
@@ -468,8 +468,8 @@ def main():
     yaml_data = "key: value"
     config = load_config(yaml_data)
 
-    pickle_data = b"arbitrary bytes"
-    obj = load_data(pickle_data)
+    json_data = '{"key": "value"}'
+    obj = load_data(json_data)
 
     password_hash = hash_password("mypassword")
 
