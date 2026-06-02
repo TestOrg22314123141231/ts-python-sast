@@ -49,10 +49,10 @@ def login():
     password = request.form.get('password')
 
     # PY.SQL.INJECTION - SQL injection vulnerability
-    query = f"SELECT * FROM users WHERE username='{username}' AND password='{hash_user_password(password)}'"  # SECURITY ISSUE: SQL injection
+    query = "SELECT * FROM users WHERE username=? AND password=?"
     conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
-    cursor.execute(query)  # SECURITY ISSUE: Executing unsanitized query
+    cursor.execute(query, (username, hash_user_password(password)))
     user = cursor.fetchone()
 
     if user:
