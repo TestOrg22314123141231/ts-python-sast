@@ -84,13 +84,11 @@ class VulnerableDataLoader:
 
         if file_extension == '.zip':
             # PY.SUBPROCESS.SHELL - Command injection via file paths
-            cmd = f"unzip -o '{archive_path}' -d '{destination}'"
-            subprocess.run(cmd, shell=True)  # SECURITY ISSUE: shell=True with file paths
+            subprocess.run(["unzip", "-o", archive_path, "-d", destination], shell=False)
 
         elif file_extension == '.tar.gz' or file_extension == '.tgz':
             # PY.SUBPROCESS.SHELL - Command injection via tar
-            cmd = f"tar -xzf '{archive_path}' -C '{destination}'"
-            subprocess.run(cmd, shell=True)  # SECURITY ISSUE: shell=True with file paths
+            subprocess.run(["tar", "-xzf", archive_path, "-C", destination], shell=False)
 
         elif file_extension == '.tar':
             # PY.OS.SYSTEM - Command injection via os.system
@@ -145,9 +143,8 @@ class VulnerableDataProcessor:
     def apply_transformation_script(self, data, script_path):
         """Apply external transformation script"""
         # PY.SUBPROCESS.SHELL - Command injection via script execution
-        cmd = f"python3 {script_path} --input-data '{json.dumps(data)}'"
         try:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)  # SECURITY ISSUE: shell=True with script path
+            result = subprocess.run(["python3", script_path, "--input-data", json.dumps(data)], shell=False, capture_output=True, text=True)
             return json.loads(result.stdout) if result.stdout else data
         except Exception as e:
             logging.error(f"Script execution error: {e}")
@@ -165,7 +162,7 @@ class VulnerableDataProcessor:
         output_dir = os.path.dirname(filename)
         if not os.path.exists(output_dir):
             # PY.SUBPROCESS.SHELL - Directory creation via shell
-            subprocess.run(f"mkdir -p '{output_dir}'", shell=True)  # SECURITY ISSUE: shell=True with path
+            subprocess.run(["mkdir", "-p", output_dir], shell=False)
 
         if format_type == 'pickle':
             # PY.PICKLE.LOAD - Using pickle for data serialization
@@ -174,10 +171,13 @@ class VulnerableDataProcessor:
 
         elif format_type == 'csv':
             # Using shell command for CSV export
-            json_str = json.dumps(data)
-            # PY.SUBPROCESS.SHELL - CSV generation via shell
-            cmd = f"echo '{json_str}' | python3 -c \"import sys,json,csv;data=json.load(sys.stdin);w=csv.writer(sys.stdout);[w.writerow(row) if isinstance(row,list) else w.writerow([row]) for row in data]\" > {filename}"
-            subprocess.run(cmd, shell=True)  # SECURITY ISSUE: Complex shell command with data
+            with open(filename, 'w', newline='') as csv_out:
+                writer = csv.writer(csv_out)
+                for row in data:
+                    if isinstance(row, list):
+                        writer.writerow(row)
+                    else:
+                        writer.writerow([row])
 
         elif format_type == 'xml':
             # PY.OS.SYSTEM - XML generation via os.system
@@ -239,9 +239,8 @@ class VulnerableDataAnalyzer:
             f.write(r_script_template)
 
         # PY.SUBPROCESS.SHELL - Execute R script via shell
-        cmd = f"Rscript {temp_script}"
         try:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)  # SECURITY ISSUE: shell=True with script
+            result = subprocess.run(["Rscript", temp_script], shell=False, capture_output=True, text=True)
             return result.stdout
         except Exception as e:
             logging.error(f"R analysis error: {e}")
