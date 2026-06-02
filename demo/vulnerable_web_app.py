@@ -147,12 +147,21 @@ def export_data():
     format_type = request.args.get('format', 'json')
     table_name = request.args.get('table', 'users')
 
-    # PY.SQL.INJECTION - SQL injection in table name
-    query = f"SELECT * FROM {table_name} LIMIT 100"  # SECURITY ISSUE: Table name not sanitized
+    ALLOWED_TABLES = {'users', 'products', 'orders', 'reports'}
+    if table_name not in ALLOWED_TABLES:
+        return "Invalid table name", 400
+
+    _table_query_map = {
+        'users': "SELECT * FROM users LIMIT 100",
+        'products': "SELECT * FROM products LIMIT 100",
+        'orders': "SELECT * FROM orders LIMIT 100",
+        'reports': "SELECT * FROM reports LIMIT 100",
+    }
+    query = _table_query_map[table_name]
 
     conn = sqlite3.connect('app.db')
     cursor = conn.cursor()
-    cursor.execute(query)  # SECURITY ISSUE: Executing unsanitized query
+    cursor.execute(query)
     rows = cursor.fetchall()
 
     if format_type == 'csv':
