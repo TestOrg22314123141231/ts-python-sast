@@ -6,6 +6,7 @@ Demo file with various security issues for ts-sast testing
 import os
 import subprocess
 import pickle
+import io
 import yaml
 import hashlib
 import requests
@@ -28,9 +29,52 @@ def load_config(config_data):
     config = yaml.load(config_data)  # SECURITY ISSUE: Code execution via YAML
     return config
 
-# PY.PICKLE.LOAD - Unsafe pickle deserialization
+# PY.PICKLE.LOAD - Fixed: Using restricted unpickler
+class RestrictedUnpickler(pickle.Unpickler):
+    """Restricted unpickler that only allows safe built-in types."""
+
+    # Whitelist of safe classes that can be unpickled
+    SAFE_CLASSES = {
+        ('builtins', 'dict'),
+        ('builtins', 'list'),
+        ('builtins', 'tuple'),
+        ('builtins', 'set'),
+        ('builtins', 'frozenset'),
+        ('builtins', 'str'),
+        ('builtins', 'bytes'),
+        ('builtins', 'bytearray'),
+        ('builtins', 'int'),
+        ('builtins', 'float'),
+        ('builtins', 'bool'),
+        ('builtins', 'complex'),
+        ('builtins', 'NoneType'),
+        ('__builtin__', 'dict'),  # Python 2 compatibility
+        ('__builtin__', 'list'),
+        ('__builtin__', 'tuple'),
+        ('__builtin__', 'set'),
+        ('__builtin__', 'frozenset'),
+        ('__builtin__', 'str'),
+        ('__builtin__', 'bytes'),
+        ('__builtin__', 'int'),
+        ('__builtin__', 'float'),
+        ('__builtin__', 'bool'),
+        ('__builtin__', 'complex'),
+        ('__builtin__', 'NoneType'),
+    }
+
+    def find_class(self, module, name):
+        """Only allow safe built-in classes to be unpickled."""
+        if (module, name) in self.SAFE_CLASSES:
+            return super().find_class(module, name)
+        # Raise an exception for any non-whitelisted class
+        raise pickle.UnpicklingError(
+            f"Attempted to unpickle unsafe class: {module}.{name}"
+        )
+
+
 def load_data(data):
-    obj = pickle.loads(data)  # SECURITY ISSUE: Code execution via pickle
+    """Safely deserialize pickle data by restricting allowed classes."""
+    obj = RestrictedUnpickler(io.BytesIO(data)).load()
     return obj
 
 # PY.HASH.WEAK - Weak cryptographic hash
@@ -57,7 +101,7 @@ def main():
     yaml_data = "key: value"
     config = load_config(yaml_data)
 
-    pickle_data = b"arbitrary bytes"
+    pickle_data = pickle.dumps({"key": "value"})
     obj = load_data(pickle_data)
 
     password_hash = hash_password("mypassword")
